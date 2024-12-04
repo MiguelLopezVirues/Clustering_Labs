@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "a69cec8e4fb071b9b555019bb292ce2f556a951d3b0fb669b0c63970e346840a"
+            "sha256": "037ee232ffd3736452ef74bc1ad2831de7760e00bc10687a4312824d1d11421d"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -84,6 +84,10 @@
             "markers": "python_version >= '3.8'",
             "version": "==0.12.1"
         },
+        "dbcv": {
+            "git": "git+https://github.com/FelSiq/DBCV",
+            "ref": "13c3896ef78d12f1e3e1cbd394f2db9a09637ffd"
+        },
         "fonttools": {
             "hashes": [
                 "sha256:03105b42259a8a94b2f0cbf1bee45f7a8a34e7b26c946a8fb89b4967e44091a8",
@@ -139,6 +143,27 @@
             ],
             "markers": "python_version >= '3.8'",
             "version": "==4.55.1"
+        },
+        "hdbscan": {
+            "hashes": [
+                "sha256:05668ae7a17479a9061676290a66a810a62f2a4ec577ba18f561088b726ab01d",
+                "sha256:127cbe8c858dc77adfde33a3e1ce4f3bea810f78b01d2bd47b1147d4b5a50472",
+                "sha256:1b55a935ed7b329adac52072e1c4028979dfc54312ca08de2deece9c97d6ebb1",
+                "sha256:353eaa22e42bee69df095744dbb8b29360e516bd9dcb84580dceeeb755f004cc",
+                "sha256:56d3057d483d112ff8e0f0a49f0d59df8c078d444dbd5dea7b987faab0c6fb49",
+                "sha256:5e958f0d7a33cd2b5e8e927b47f7360bf8a3e7d72355dd65a701e8aabe407b27",
+                "sha256:6e0d6197ee045b173e1f16e6884386f335a56091e373a839dd24f7331a8fa9ed",
+                "sha256:7ebe69a0ad2f86d090a518b17d4635dfc65d3402b8c453aa2942f9c7dc895b9e",
+                "sha256:811a248e57353a4aa815019176879fd16bace55ed633583a6b47734edcb5397c",
+                "sha256:9ba82e510508921e0b30a234b639f5d84a7d475746e7db814517c5c4d1589016",
+                "sha256:c18947947af7f843f47c0111f21ffd5a5fd31789fcae39689a44e8b01433e504",
+                "sha256:c5a16f38e1816ab69ad315a1eab429e5a7c725210d88e71d273496cce3a2693c",
+                "sha256:c9e383ff17beee0591075ff65d524bda5b5a35dfb01d218245a7ba30c8d48a17",
+                "sha256:cda06a6f4e65c6c34bed083bb8cdf29fdb1ffcb15580829d79b2906c7bdc6dbc",
+                "sha256:cf094aeea4df4513644333b9dda408ef8ef385d0ab5f3f8681e239a9008cbeb5"
+            ],
+            "index": "pypi",
+            "version": "==0.8.40"
         },
         "joblib": {
             "hashes": [
@@ -315,6 +340,13 @@
             "index": "pypi",
             "markers": "python_version >= '3.9'",
             "version": "==3.9.3"
+        },
+        "mpmath": {
+            "hashes": [
+                "sha256:7a28eb2a9774d00c7bc92411c19a89209d5da7c4c9a9e227be8330a23a25b91f",
+                "sha256:a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c"
+            ],
+            "version": "==1.3.0"
         },
         "numpy": {
             "hashes": [
@@ -714,6 +746,15 @@
             ],
             "markers": "python_version >= '2'",
             "version": "==2024.2"
+        },
+        "xicorpy": {
+            "hashes": [
+                "sha256:1d463260f7e0fee09d735021718144d9988df8855a980925fcc02b91715ba0f0",
+                "sha256:ec16ba9ad0fbef7fbaaa00f0dff58c36f7c5c5ad6f8875d8c59917360877650d"
+            ],
+            "index": "pypi",
+            "markers": "python_version < '3.13' and python_version >= '3.9'",
+            "version": "==0.6"
         },
         "yellowbrick": {
             "hashes": [

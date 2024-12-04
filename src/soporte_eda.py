@@ -121,8 +121,7 @@ def plot_relationships_categorical_target(df, target,hue=None, cat_type="count",
                 sns.histplot(data=df,
                                 x=feature,
                                 hue=target,
-                                ax=ax,
-                                stat="proportion")
+                                ax=ax)
 
         else:
             # mosaic plots

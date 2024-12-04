@@ -14,7 +14,7 @@ import seaborn as sns
 
 # Preprocesado y modelado
 # -----------------------------------------------------------------------
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, OrdinalEncoder, RobustScaler, MinMaxScaler
 
 
 # Sacar número de clusters y métricas
@@ -311,9 +311,38 @@ class Clustering:
         Params:
             - dataframe : pd.DataFrame. El DataFrame que contiene los datos a los que se les aplicarán los métodos de clustering.
         """
-        self.dataframe = dataframe
+        self.dataframe = dataframe.copy()
+        self.dataframe_encoded = dataframe.copy()
+        self.dataframe_escalado = None
+        self.labels = {
+            "kmeans": None,
+            "agglomerative": None,
+            "divisive": None,
+            "spectral": None,
+            "DBSCAN": None
+        }
+
+    def encodear_dataframe(self):
+        encoder = OrdinalEncoder()
+        categoricas = self.dataframe.select_dtypes(["category","object"]).columns.to_list()
+        self.dataframe_encoded[categoricas] = encoder.fit_transform(self.dataframe[categoricas])
     
-    def sacar_clusters_kmeans(self, n_clusters=(2, 15), metric="silhouette"):
+    def escalar_dataframe(self, scaler="standard"):
+        scalers = {
+            "standard":StandardScaler(),
+            "minmax":MinMaxScaler(),
+            "robust": RobustScaler()
+        }
+
+        self.dataframe_escalado = pd.DataFrame(scalers[scaler].fit_transform(self.dataframe_encoded), 
+                                               columns=self.dataframe_encoded.columns.to_list())
+
+    def preparar_dataframe(self, scaler="standard"):
+        self.encodear_dataframe()
+        self.escalar_dataframe(scaler)
+
+    
+    def sacar_clusters_kmeans(self, n_clusters=(2, 15), metric="calinski_harabasz"):
         """
         Utiliza KMeans y KElbowVisualizer para determinar el número óptimo de clusters basado en la métrica de silhouette.
 
@@ -325,10 +354,10 @@ class Clustering:
         """
         model = KMeans()
         visualizer = KElbowVisualizer(model, k=n_clusters, metric=metric)
-        visualizer.fit(self.dataframe)
+        visualizer.fit(self.dataframe_escalado)
         visualizer.show()
     
-    def modelo_kmeans(self, dataframe_original, num_clusters):
+    def modelo_kmeans(self, dataframe_original, num_clusters, random_state=42):
         """
         Aplica KMeans al DataFrame y añade las etiquetas de clusters al DataFrame original.
 
@@ -339,11 +368,11 @@ class Clustering:
         Returns:
             - pd.DataFrame. El DataFrame original con una nueva columna para las etiquetas de clusters.
         """
-        kmeans = KMeans(n_clusters=num_clusters)
-        km_fit = kmeans.fit(self.dataframe)
-        labels = km_fit.labels_
-        dataframe_original["clusters_kmeans"] = labels.astype(str)
-        return dataframe_original, labels
+        kmeans = KMeans(n_clusters=num_clusters, random_state=random_state)
+        km_fit = kmeans.fit(self.dataframe_escalado)
+        self.labels["kmeans"] = km_fit.labels_
+        dataframe_original["clusters_kmeans"] = self.labels["kmeans"].astype(str)
+        return dataframe_original, self.labels["kmeans"]
     
     def visualizar_dendrogramas(self, lista_metodos=["average", "complete", "ward"]):
         """
@@ -360,13 +389,138 @@ class Clustering:
         axes = axes.flat
 
         for indice, metodo in enumerate(lista_metodos):
-            sch.dendrogram(sch.linkage(self.dataframe, method=metodo),
-                           labels=self.dataframe.index, 
+            sch.dendrogram(sch.linkage(self.dataframe_escalado, method=metodo),
+                           labels=self.dataframe_escalado.index, 
                            leaf_rotation=90, leaf_font_size=4,
                            ax=axes[indice])
             axes[indice].set_title(f'Dendrograma usando {metodo}')
             axes[indice].set_xlabel('Muestras')
             axes[indice].set_ylabel('Distancias')
+
+    def modelo_aglomerativo_tabla(self, linkage_methods, distance_metrics, silhouette_distance="euclidean"):
+
+        # Crear un DataFrame para almacenar los resultados
+        results = []
+
+        # Suponiendo que tienes un DataFrame llamado df_copia
+        # Aquí df_copia debería ser tu conjunto de datos
+        # Asegúrate de que esté preprocesado adecuadamente (normalizado si es necesario)
+
+        for linkage_method in linkage_methods:
+            for metric in distance_metrics:
+                for cluster in range(2,6):
+                    try:
+                        # Configurar el modelo de AgglomerativeClustering
+                        modelo = AgglomerativeClustering(
+                            linkage=linkage_method,
+                            metric=metric,  
+                            distance_threshold=None,  # Para buscar n_clusters
+                            n_clusters=cluster, # Cambia esto según tu análisis. Si tienen valor, el distance threshold puede ser none, y viceversa.
+                        )
+                        
+                        # Ajustar el modelo
+                        labels = modelo.fit_predict(self.dataframe_escalado) #etiquetas del cluster al que pertenece
+
+                        # Calcular métricas si hay más de un cluster
+                        if len(np.unique(labels)) > 1:
+                            # Silhouette Score
+                            silhouette_avg = silhouette_score(self.dataframe_escalado, labels, metric=silhouette_distance)
+
+                            # Davies-Bouldin Index
+                            db_score = davies_bouldin_score(self.dataframe_escalado, labels)
+
+                            
+                            # Cardinalidad (tamaño de cada cluster)
+                            cluster_cardinality = {cluster: sum(labels == cluster) for cluster in np.unique(labels)}
+                        else:
+                            cluster_cardinality = {'Cluster único': len(self.dataframe_escalado)}
+
+                        # Almacenar resultados
+                        results.append({
+                            'linkage': linkage_method,
+                            'metric': metric,
+                            'silhouette_score': silhouette_avg,
+                            'davies_bouldin_index': db_score,
+                            'cluster_cardinality': cluster_cardinality,
+                            'n_cluster': cluster
+                        })
+
+                    except Exception as e:
+                        print(f"Error con linkage={linkage_method}, metric={metric}: {e}")
+                        # Ward SÓLO acepta medir con distancia euclidiana en scikitlearn.
+
+        # Crear DataFrame de resultados
+        results_df = pd.DataFrame(results)
+
+        # Mostrar resultados ordenados por silhouette_score
+        results_df = results_df.sort_values(by='silhouette_score', ascending=False)
+
+        # Mostrar el DataFrame
+        return results_df
+    
+    def plot_clusters(self, columna_cluster):
+        # columnas_plot = df_cluster.columns.drop(columna_cluster)
+        df_cluster = self.dataframe.select_dtypes(np.number).copy()
+        columnas_plot = df_cluster.columns
+
+ 
+        df_cluster[columna_cluster] = self.labels[columna_cluster]
+
+        
+
+        ncols = math.ceil(12 / df_cluster[columna_cluster].nunique())
+        nrows = math.ceil(len(columnas_plot) / ncols)
+
+        fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(20, 8))
+        axes = axes.flat
+
+
+        for indice, columna in enumerate(columnas_plot):
+            df_group = df_cluster.groupby(columna_cluster)[columna].mean().reset_index()
+            sns.barplot(x=columna_cluster, y=columna, data=df_group, ax=axes[indice], palette="coolwarm")
+            axes[indice].set_title(columna)  
+
+        if len(columnas_plot) % 2 == 1: 
+            fig.delaxes(axes[-1]) 
+
+        plt.tight_layout()
+        plt.show() 
+
+    def radar_plot(self, metodo="kmeans"):
+        variables = self.dataframe.select_dtypes(np.number).columns
+
+        radar = self.dataframe_escalado
+        radar[metodo] = self.labels[metodo]
+
+        # Agrupar por cluster y calcular la media
+        cluster_means = radar.groupby(metodo)[variables].mean()
+
+        # Repetir la primera columna al final para cerrar el radar
+        cluster_means = pd.concat([cluster_means, cluster_means.iloc[:, 0:1]], axis=1)
+
+        # Crear los ángulos para el radar plot
+        num_vars = len(variables)
+        angles = np.linspace(0, 2 * np.pi, num_vars, endpoint=False).tolist()
+        angles += angles[:1]  # Cerrar el gráfico
+
+        # Crear el radar plot
+        fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(polar=True))
+
+        # Dibujar un gráfico para cada cluster
+        for i, row in cluster_means.iterrows():
+            ax.plot(angles, row, label=f'Cluster {i}')
+            ax.fill(angles, row, alpha=0.25)
+
+        # Configurar etiquetas de los ejes
+        ax.set_theta_offset(np.pi / 2)
+        ax.set_theta_direction(-1)
+        ax.set_xticks(angles[:-1])
+        ax.set_xticklabels(variables)
+
+        # Añadir leyenda y título
+        plt.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1))
+        plt.title('Radar Plot de los Clusters', size=16)
+        plt.show()
     
     def modelo_aglomerativo(self, num_clusters, metodo_distancias, dataframe_original):
         """
@@ -385,10 +539,11 @@ class Clustering:
             distance_threshold=None,
             n_clusters=num_clusters
         )
-        aglo_fit = modelo.fit(self.dataframe)
-        labels = aglo_fit.labels_
-        dataframe_original["clusters_agglomerative"] = labels.astype(str)
+        aglo_fit = modelo.fit(self.dataframe_escalado)
+        self.labels["agglomerative"] = aglo_fit.labels_
+        dataframe_original["clusters_agglomerative"] = self.labels["agglomerative"].astype(str)
         return dataframe_original
+    
     
     def modelo_divisivo(self, dataframe_original, threshold=0.5, max_clusters=5):
         """
@@ -460,8 +615,8 @@ class Clustering:
             - pd.DataFrame. El DataFrame original con una nueva columna para las etiquetas de clusters.
         """
         spectral = SpectralClustering(n_clusters=n_clusters, assign_labels=assign_labels, random_state=0)
-        labels = spectral.fit_predict(self.dataframe)
-        dataframe_original["clusters_spectral"] = labels.astype(str)
+        self.labels["spectral"] = spectral.fit_predict(self.dataframe_escalado)
+        dataframe_original["clusters_spectral"] = self.labels["spectral"].astype(str)
         return dataframe_original
     
     def modelo_dbscan(self, dataframe_original, eps_values=[0.5, 1.0, 1.5], min_samples_values=[3, 2, 1]):
@@ -485,11 +640,11 @@ class Clustering:
             for min_samples in min_samples_values:
                 # Aplicar DBSCAN
                 dbscan = DBSCAN(eps=eps, min_samples=min_samples)
-                labels = dbscan.fit_predict(self.dataframe)
+                labels = dbscan.fit_predict(self.dataframe_escalado)
 
                 # Calcular la métrica de silueta, ignorando etiquetas -1 (ruido)
                 if len(set(labels)) > 1 and len(set(labels)) < len(labels):
-                    silhouette = silhouette_score(self.dataframe, labels)
+                    silhouette = silhouette_score(self.dataframe_escalado, labels)
                 else:
                     silhouette = -1
 
@@ -504,24 +659,24 @@ class Clustering:
 
         # Aplicar DBSCAN con los mejores parámetros encontrados
         best_dbscan = DBSCAN(eps=best_eps, min_samples=best_min_samples)
-        best_labels = best_dbscan.fit_predict(self.dataframe)
+        self.labels["DBSCAN"] = best_dbscan.fit_predict(self.dataframe_escalado)
 
         # Añadir los labels al DataFrame original
-        dataframe_original["clusters_dbscan"] = best_labels
+        dataframe_original["clusters_dbscan"] = self.labels["DBSCAN"]
 
         return dataframe_original
 
-    def calcular_metricas(self, labels: np.ndarray):
+    def calcular_metricas(self, labels: str):
         """
         Calcula métricas de evaluación del clustering.
         """
-        if len(set(labels)) <= 1:
+        if len(set(self.labels[labels])) <= 1:
             raise ValueError("El clustering debe tener al menos 2 clusters para calcular las métricas.")
 
-        silhouette = silhouette_score(self.dataframe, labels)
-        davies_bouldin = davies_bouldin_score(self.dataframe, labels)
+        silhouette = silhouette_score(self.dataframe_escalado, self.labels[labels])
+        davies_bouldin = davies_bouldin_score(self.dataframe_escalado, self.labels[labels])
 
-        unique, counts = np.unique(labels, return_counts=True)
+        unique, counts = np.unique(self.labels[labels], return_counts=True)
         cardinalidad = dict(zip(unique, counts))
 
         return pd.DataFrame({
